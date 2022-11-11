@@ -6,10 +6,7 @@ public class Parser {
 
     ArrayList<String> virtualLines; // virtual machine code
     ArrayList<String> assemblyLines; // translated assembly
-
     String inputFileName;
-
-    String writeName;
 
     public Parser(String fileName) {
         this.inputFileName = fileName;
@@ -37,7 +34,6 @@ public class Parser {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        this.writeName = inputFileName.substring(0,inputFileName.indexOf('.')) + ".asm";
     }
 
     public void printVirtual() { this.print(virtualLines); }
@@ -60,29 +56,7 @@ public class Parser {
         }
     }
 
-    public void writeToFile() {
-        this.writeToFile(this.writeName);
+    public ArrayList<String> getAssemblyLines() {
+        return assemblyLines;
     }
-
-    public void writeToFile(String fileName) {
-        if (this.assemblyLines.size()==0) {
-            System.out.println("No output lines. convert instructions first");
-            return;
-        }
-
-
-        BufferedWriter writer = null;
-        try {
-            writer = new BufferedWriter(new FileWriter(fileName));
-            for (String s: assemblyLines) {
-                writer.write(s);
-                writer.newLine();
-            }
-            writer.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-
 }

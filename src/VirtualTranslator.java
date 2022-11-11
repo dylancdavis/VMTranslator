@@ -1,24 +1,28 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 public class VirtualTranslator {
 
     HashMap<String,String> segmentMap;
-    Integer num = 0;
+    Integer num_labels = 0;
+    Integer num_functions = 0;
+
+    Stack<String> currentFunction = new Stack<>();
+
+    String[] segmentNames = {"LCL","ARG","THIS","THAT"};
 
     String fileName;
 
     List<String> operators = Arrays.asList("add","sub","neg","eq","gt","lt","and","or","not");
 
     public VirtualTranslator(String fileName) {
-        this.fileName = fileName;
+        this.fileName = fileName.substring(0,fileName.indexOf('.'));
         segmentMap = new HashMap<>();
         segmentMap.put("local","LCL");
         segmentMap.put("argument","ARG");
         segmentMap.put("this","THIS");
         segmentMap.put("that","THAT");
+
+        currentFunction.push("main");
     }
 
     public ArrayList<String> translateLine(String vmLine) {
@@ -27,17 +31,128 @@ public class VirtualTranslator {
         } else if (vmLine.startsWith("pop")) {
             return handlePopInstruction(vmLine.substring(4));
         } else if (operators.contains(vmLine)) {
-            System.out.println("Handling operator");
             return handleOperator(vmLine);
         } else if (vmLine.startsWith("goto") || vmLine.startsWith("if-goto") || vmLine.startsWith("label")) {
              return handleBranching(vmLine);
+        } else if (vmLine.startsWith("call")) {
+            return handleFunctionCall(vmLine);
+        } else if (vmLine.startsWith("function")) {
+            return handleFunctionDeclaration(vmLine);
+        } else if (vmLine.startsWith("return")) {
+            return handleReturn(vmLine);
         } else {
-            return handleFunction(vmLine);
+            throw new RuntimeException("Unrecognized vmLine command: " + vmLine);
         }
     }
 
-    private ArrayList<String> handleFunction(String instruction) {
-        return null;
+    private ArrayList<String> handleFunctionCall(String instruction) {
+        ArrayList<String> ret = new ArrayList<>();
+
+        String[] arr = instruction.split(" ");
+        String functionName = arr[1];
+        int nArgs = Integer.parseInt(arr[2]);
+        int toSub = 5+nArgs;
+
+        // names return label with current function and an arbitrary (unique) number.
+        String returnVar = currentFunction.peek()+".returnAddress."+getFunctionNum();
+
+        ret.add("@"+returnVar); // should be replaced with proper return address.
+        ret.add("D=A"); // set D equal to the return value.
+        ret.addAll(addDRegisterToStack());
+
+        // All addresses to save
+
+        for (String s : segmentNames) {
+            ret.add("@"+s);
+            ret.add("D=M");
+            ret.addAll(addDRegisterToStack());
+        }
+
+        ret.add("@SP");
+        ret.add("D=A"); // load SP addr into D
+
+        ret.add("@LCL"); // load LCL addr
+        ret.add("M=D"); // set new LCL to the SP
+
+        ret.add("@"+toSub); // load num to sub into A
+        ret.add("D=D-A"); // change D to be new sub value
+        ret.add("@ARG"); // load ARG location
+        ret.add("M=D"); // change ARG value to appropriate location
+
+        ret.add("@"+functionName); // load addr of function name label
+        ret.add("D;JMP"); // and jump to it
+
+        ret.add("("+returnVar+")"); // add label of return value to go to.
+
+        return ret;
+    }
+
+    private ArrayList<String> handleFunctionDeclaration(String instruction) {
+        ArrayList<String> ret = new ArrayList<>();
+        String[] arr = instruction.split(" ");
+        String functionName = arr[1];
+        int nVars = Integer.parseInt(arr[2]);
+
+        ret.add("("+functionName+")");
+        ret.add("@SP");
+        // Push stack forward the number of local variables needed.
+        for (int i=0;i<nVars;i++) {
+            ret.add("M=M+1");
+        }
+        return ret;
+
+    }
+
+    private ArrayList<String> handleReturn(String instruction) {
+        ArrayList<String> ret = new ArrayList<>();
+
+        // Create the endFrame variable
+        // Note- it actually starts at the beginning, lol.
+        ret.add("@LCL");
+        ret.add("D=M");
+        ret.add("@5");
+        ret.add("D=D-A");
+        ret.add("@endFrame");
+        ret.add("M=D"); // endFrame contains reference at beginning of frame (return address)
+
+        // Create the returnAddress variable
+        ret.add("@endFrame");
+        ret.add("A=M"); // change A equal to *endFrame
+        ret.add("D=M"); // store in D the return address found at endFrame
+        ret.add("@returnAddress"); // load new var for return address
+        ret.add("M=D"); // store the return address in that var
+
+        // Store the top of the stack onto arg[0]
+        ret.add("@SP");
+        ret.add("A=M"); // load location of top of stack
+        ret.add("A=A-1");
+        ret.add("D=M"); // store value of top of stack into D
+        ret.add("@ARG");
+        ret.add("A=M"); // load addr of ARG
+        ret.add("M=D"); // store in ARG[0], the value of D
+
+        // SP = ARG+1
+        ret.add("@ARG");
+        ret.add("D=M"); // store ARG pointer location into D
+        ret.add("@SP");
+        ret.add("M=D+1"); // change SP contents to reference ARG pointer +1
+
+        // Reinstate Segments
+        for (String s : segmentNames) {
+            ret.add("@endFrame");
+            ret.add("M=M+1"); // move endFrame contents to point to appropriate segment
+            ret.add("A=M"); // perform * so A now has reference to saved segment
+            ret.add("D=M"); // store saved value in D
+            ret.add("@"+s); // load segment
+            ret.add("M=D"); // change segment pointer to reference saved value
+        }
+
+        // Return to return address
+        ret.add("@returnAddress");
+        ret.add("A=M"); // load whatever value is stored there into A
+        ret.add("D;JMP");
+
+        return ret;
 
     }
 
@@ -110,12 +225,7 @@ public class VirtualTranslator {
         }
 
         // Once contents are loaded into D, process the rest.
-        ret.add("@SP"); // load stack pointer
-        ret.add("A=M"); // set address to pointer contents
-        ret.add("M=D"); // set memory contents (*SP) to loaded contents
-        ret.add("@SP"); // load SP again
-        ret.add("M=M+1"); // increment the pointer
-
+        ret.addAll(addDRegisterToStack());
         return ret;
     }
 
@@ -340,8 +450,25 @@ public class VirtualTranslator {
     }
 
     private String getLabelNum() {
-        this.num++;
-        return num.toString();
+        this.num_labels++;
+        return num_labels.toString();
+    }
+
+    private String getFunctionNum() {
+        this.num_functions++;
+        return num_functions.toString();
+    }
+
+    private ArrayList<String> addDRegisterToStack() {
+        ArrayList<String> ret = new ArrayList<>();
+
+        ret.add("@SP"); // load stack pointer
+        ret.add("A=M"); // set address to pointer contents
+        ret.add("M=D"); // set memory contents (*SP) to loaded contents
+        ret.add("@SP"); // load SP again
+        ret.add("M=M+1"); // increment the pointer
+
+        return ret;
     }
 
 

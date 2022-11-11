@@ -42,8 +42,13 @@ public class Parser {
     private void print(ArrayList<String> arrList) {
         int i=0;
         for (String s : arrList) {
-            System.out.println(i + ". " + s);
-            i++;
+            if (s != "" && !s.startsWith("//")) {
+                System.out.println(i + ". " + s);
+                i++;
+            } else {
+                System.out.println(s);
+            }
+
         }
     }
 

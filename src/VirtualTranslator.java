@@ -6,7 +6,7 @@ public class VirtualTranslator {
     Integer num_labels = 0;
     Integer num_functions = 0;
 
-    Stack<String> currentFunction = new Stack<>();
+    String currentFunction = "init";
 
     String[] segmentNames = {"LCL","ARG","THIS","THAT"};
 
@@ -21,8 +21,6 @@ public class VirtualTranslator {
         segmentMap.put("argument","ARG");
         segmentMap.put("this","THIS");
         segmentMap.put("that","THAT");
-
-        currentFunction.push("main");
     }
 
     public ArrayList<String> translateLine(String vmLine) {
@@ -54,14 +52,13 @@ public class VirtualTranslator {
         int toSub = 5+nArgs;
 
         // names return label with current function and an arbitrary (unique) number.
-        String returnVar = currentFunction.peek()+".returnAddress."+getFunctionNum();
+        String returnVar = functionName+".returnAddress."+getFunctionNum();
 
         ret.add("@"+returnVar); // should be replaced with proper return address.
         ret.add("D=A"); // set D equal to the return value.
         ret.addAll(addDRegisterToStack());
 
         // All addresses to save
-
         for (String s : segmentNames) {
             ret.add("@"+s);
             ret.add("D=M");
@@ -69,10 +66,10 @@ public class VirtualTranslator {
         }
 
         ret.add("@SP");
-        ret.add("D=A"); // load SP addr into D
+        ret.add("D=M"); // load SP pointed addr into D
 
         ret.add("@LCL"); // load LCL addr
-        ret.add("M=D"); // set new LCL to the SP
+        ret.add("M=D"); // set new LCL to the SP pointed one
 
         ret.add("@"+toSub); // load num to sub into A
         ret.add("D=D-A"); // change D to be new sub value
@@ -94,11 +91,18 @@ public class VirtualTranslator {
         int nVars = Integer.parseInt(arr[2]);
 
         ret.add("("+functionName+")");
-        ret.add("@SP");
-        // Push stack forward the number of local variables needed.
-        for (int i=0;i<nVars;i++) {
-            ret.add("M=M+1");
+
+        if (nVars != 0) {
+            ret.add("@SP");
+            // Push stack forward the number of local variables needed.
+            for (int i=0;i<nVars;i++) {
+                ret.add("A=M");
+                ret.add("M=0");
+                ret.add("@SP");
+                ret.add("M=M+1");
+            }
         }
+
         return ret;
 
     }

@@ -12,7 +12,7 @@ public class Main {
         //final String[] FILES = {"BasicTest.vm","PointerTest.vm","StaticTest.vm","SimpleAdd.vm","StackTest.vm"};
 
         final String DIR_NAME = "VMFiles";
-        final String OUTPUT_NAME = "FibonacciElement";
+        final String OUTPUT_NAME = "NestedCall";
 
         File dir = new File(DIR_NAME);
 
@@ -50,12 +50,14 @@ public class Main {
         }
 
         ArrayList<String> bootstrap = new ArrayList<>();
+        bootstrap.add("// Bootstrap Code:");
         bootstrap.add("@256");
         bootstrap.add("D=A");
         bootstrap.add("@SP");
         bootstrap.add("M=D");
         bootstrap.add("@Sys.init");
         bootstrap.add("D;JMP");
+        bootstrap.add("");
 
         BufferedWriter writer = null;
         try {

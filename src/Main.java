@@ -3,19 +3,21 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Scanner;
 
 public class Main {
 
+    static final String DIR_NAME = "VMFiles";
+    static final String OUTPUT_NAME = "SimpleFunction";
+
+    static final boolean USE_BOOTSTRAP = false;
+
     public static void main(String[] args) {
 
-        //final String[] FILES = {"BasicTest.vm","PointerTest.vm","StaticTest.vm","SimpleAdd.vm","StackTest.vm"};
+        ArrayList<String> bootstrap = getBootstrapAssembly();
 
-        final String DIR_NAME = "VMFiles";
-        final String OUTPUT_NAME = "NestedCall";
+        int functionNum = 1;
 
         File dir = new File(DIR_NAME);
-
         File[] files = dir.listFiles();
 
         if (files.length == 0) {
@@ -31,7 +33,7 @@ public class Main {
             String extension = fileName.substring(fileName.indexOf('.'));
             if (f.isFile() && extension.equals(".vm")) {
 
-                Parser parser = new Parser(DIR_NAME+"/"+fileName);
+                Parser parser = new Parser(DIR_NAME+"/"+fileName, functionNum);
                 parser.createInstructionList();
 
                 System.out.println("Extracted Virtual Instructions for "+fileName+":");
@@ -44,40 +46,79 @@ public class Main {
                 System.out.println();
 
                 vmInstructions[fileNum] = parser.getAssemblyLines();
+
+                functionNum = parser.getFunctionNum();
             }
-
             fileNum++;
-        }
 
-        ArrayList<String> bootstrap = new ArrayList<>();
-        bootstrap.add("// Bootstrap Code:");
-        bootstrap.add("@256");
-        bootstrap.add("D=A");
-        bootstrap.add("@SP");
-        bootstrap.add("M=D");
-        bootstrap.add("@Sys.init");
-        bootstrap.add("D;JMP");
-        bootstrap.add("");
+        }
 
         BufferedWriter writer = null;
         try {
+            int i = 0;
+
             writer = new BufferedWriter(new FileWriter(OUTPUT_NAME+".asm"));
-            for (String s : bootstrap) {
-                writer.write(s);
-                writer.newLine();
+            BufferedWriter lineNumWriter = new BufferedWriter(new FileWriter(OUTPUT_NAME+"LineNumbers.asm"));
+
+            if (USE_BOOTSTRAP) {
+                for (String s : bootstrap) {
+                    writer.write(s);
+                    writer.newLine();
+                    if (s != "" && !s.startsWith("//")) {
+                        lineNumWriter.write(i + ". " + s);
+                        i++;
+                    } else {
+                        lineNumWriter.write(s);
+                    }
+                    lineNumWriter.newLine();
+                }
             }
             for (ArrayList<String> lines : vmInstructions) {
                 for (String s : lines) {
                     writer.write(s);
                     writer.newLine();
+                    if (s != "" && !s.startsWith("//") && !s.startsWith("(")) {
+                        lineNumWriter.write(i + ". " + s);
+                        i++;
+                    } else {
+                        lineNumWriter.write(s);
+                    }
+                    lineNumWriter.newLine();
                 }
             }
             writer.close();
+            lineNumWriter.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
+    }
 
+    public static ArrayList<String> getBootstrapAssembly() {
 
+        ArrayList<String> bootstrap = new ArrayList<>();
+
+        bootstrap.add("// Bootstrap Code:");
+        bootstrap.add("@256");
+        bootstrap.add("D=A");
+        bootstrap.add("@SP");
+        bootstrap.add("M=D");
+        bootstrap.add("");
+
+        Parser bootstrapParser = new Parser("Bootstrap/Bootstrap.vm", 0);
+        bootstrapParser.createInstructionList();
+
+        System.out.println("Extracted Virtual Instructions for Bootstrap:");
+        bootstrapParser.printVirtual();
+        System.out.println();
+
+        bootstrapParser.convertVirtualtoAssembly();
+        System.out.println("Converted Assembly Instructions for Bootstrap:");
+        bootstrapParser.printAssembly();
+        System.out.println();
+
+        bootstrap.addAll(bootstrapParser.getAssemblyLines());
+
+        return bootstrap;
     }
 }

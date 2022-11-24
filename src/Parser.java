@@ -6,14 +6,15 @@ public class Parser {
 
     ArrayList<String> virtualLines; // virtual machine code
     ArrayList<String> assemblyLines; // translated assembly
+
+    VirtualTranslator translator;
     String inputFileName;
 
-    public Parser(String fileName) {
+    public Parser(String fileName, int functionNum) {
         this.inputFileName = fileName;
         this.virtualLines = new ArrayList<>();
         this.assemblyLines = new ArrayList<>();
-
-
+        this.translator = new VirtualTranslator(this.inputFileName, functionNum);
     }
 
     public void createInstructionList() {
@@ -53,7 +54,7 @@ public class Parser {
     }
 
     public void convertVirtualtoAssembly() {
-        VirtualTranslator translator = new VirtualTranslator(this.inputFileName);
+
         for (String s : virtualLines) {
             assemblyLines.add("// " + s);
             assemblyLines.addAll(translator.translateLine(s));
@@ -63,5 +64,9 @@ public class Parser {
 
     public ArrayList<String> getAssemblyLines() {
         return assemblyLines;
+    }
+
+    public int getFunctionNum() {
+        return translator.getFunctionNum();
     }
 }

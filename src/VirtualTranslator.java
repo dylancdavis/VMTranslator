@@ -14,13 +14,15 @@ public class VirtualTranslator {
 
     List<String> operators = Arrays.asList("add","sub","neg","eq","gt","lt","and","or","not");
 
-    public VirtualTranslator(String fileName) {
+    public VirtualTranslator(String fileName, int functionNum) {
+        System.out.println("fileName = " + fileName);
         this.fileName = fileName.substring(0,fileName.indexOf('.'));
         segmentMap = new HashMap<>();
         segmentMap.put("local","LCL");
         segmentMap.put("argument","ARG");
         segmentMap.put("this","THIS");
         segmentMap.put("that","THAT");
+        this.num_functions = functionNum;
     }
 
     public ArrayList<String> translateLine(String vmLine) {
@@ -53,6 +55,7 @@ public class VirtualTranslator {
 
         // names return label with current function and an arbitrary (unique) number.
         String returnVar = functionName+".returnAddress."+getFunctionNum();
+        num_functions++;
 
         ret.add("@"+returnVar); // should be replaced with proper return address.
         ret.add("D=A"); // set D equal to the return value.
@@ -212,7 +215,8 @@ public class VirtualTranslator {
                     ret.add("D=A"); // into D register
                     break;
                 case "static":
-                    ret.add("@"+fileName+"."+num);
+                    String temp = fileName.replace('/','.');
+                    ret.add("@"+temp+"."+num);
                     ret.add("D=M"); // load into D register
                     break;
                 case "temp":
@@ -270,7 +274,8 @@ public class VirtualTranslator {
                     System.out.println("Cannot pop to constant segment.");
                     break;
                 case "static":
-                    ret.add("@"+fileName+"."+num); // load address to write to
+                    String temp = fileName.replace('/','.');
+                    ret.add("@"+temp+"."+num); // load address to write to
                     break;
                 case "temp":
                     ret.add("@" + (5+Integer.parseInt(num))); //load address to write to
@@ -458,9 +463,8 @@ public class VirtualTranslator {
         return num_labels.toString();
     }
 
-    private String getFunctionNum() {
-        this.num_functions++;
-        return num_functions.toString();
+    public int getFunctionNum() {
+        return num_functions;
     }
 
     private ArrayList<String> addDRegisterToStack() {

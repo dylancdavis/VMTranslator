@@ -7,16 +7,14 @@ public class Parser {
     ArrayList<String> virtualLines; // virtual machine code
     ArrayList<String> assemblyLines; // translated assembly
 
+    VirtualTranslator translator;
     String inputFileName;
 
-    String writeName;
-
-    public Parser(String fileName) {
+    public Parser(String fileName, int functionNum) {
         this.inputFileName = fileName;
         this.virtualLines = new ArrayList<>();
         this.assemblyLines = new ArrayList<>();
-
-
+        this.translator = new VirtualTranslator(this.inputFileName, functionNum);
     }
 
     public void createInstructionList() {
@@ -37,7 +35,6 @@ public class Parser {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        this.writeName = inputFileName.substring(0,inputFileName.indexOf('.')) + ".asm";
     }
 
     public void printVirtual() { this.print(virtualLines); }
@@ -46,13 +43,18 @@ public class Parser {
     private void print(ArrayList<String> arrList) {
         int i=0;
         for (String s : arrList) {
-            System.out.println(i + ". " + s);
-            i++;
+            if (s != "" && !s.startsWith("//")) {
+                System.out.println(i + ". " + s);
+                i++;
+            } else {
+                System.out.println(s);
+            }
+
         }
     }
 
     public void convertVirtualtoAssembly() {
-        VirtualTranslator translator = new VirtualTranslator(this.inputFileName);
+
         for (String s : virtualLines) {
             assemblyLines.add("// " + s);
             assemblyLines.addAll(translator.translateLine(s));
@@ -60,29 +62,11 @@ public class Parser {
         }
     }
 
-    public void writeToFile() {
-        this.writeToFile(this.writeName);
+    public ArrayList<String> getAssemblyLines() {
+        return assemblyLines;
     }
 
-    public void writeToFile(String fileName) {
-        if (this.assemblyLines.size()==0) {
-            System.out.println("No output lines. convert instructions first");
-            return;
-        }
-
-
-        BufferedWriter writer = null;
-        try {
-            writer = new BufferedWriter(new FileWriter(fileName));
-            for (String s: assemblyLines) {
-                writer.write(s);
-                writer.newLine();
-            }
-            writer.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public int getFunctionNum() {
+        return translator.getFunctionNum();
     }
-
-
 }
